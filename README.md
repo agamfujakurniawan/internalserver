@@ -1,51 +1,19 @@
-Ajenti-V in Docker with Lets'Encrypt
-This is an updated docker image of the Ajenti/Ajenti-v control panel from niiknow/ajenticp
-based on his child image niiknow/docker-hostingbase:1.6.1
+# docker-ajenti
+## About
+This is a Docker container that runs only the basics of Ajenti 2 on Ubuntu:17.04.
 
-Video tutorial https://www.youtube.com/watch?v=SzKoPifm6OI⁠
+http://ajenti.org/
+## How To Use
+```bash
+sudo ./start.sh [password]
+```
+Example:
+```bash
+sudo ./start.sh sUPerSecRETpaSsW0rd
+```
+## Details
+Default username is root. The password is what you set when running the start.sh script.
 
-BEFORE RUN CONTAINER:
+Ajenti 2 uses port 8000 by default. The start.sh script has the Docker container using the host network. It is not necessary, but it does allow a more consistent experience with the Settings plugin from the Ajenti GUI.
 
-mkdir -p /app/ajenticp/{backup,www}
-
-START CONTAINER:
-
-docker run -p 80:80 -p 443:443 -p 7777:22 -p 8888:8000 -v /app/ajenticp/www:/www -v /app/ajenticp/backup:/backup -d linuxlife/ajenti-v:v0.23
-
-BROWSER: https://youip:8000
-
-Default Ajenti user/pass: root/admin
-
-START WITH DOCKER-COMPOSE:
-
-version: '3.8'
-
-services:
-  app:
-    image: linuxlife/ajenti-v:v0.23
-    restart: unless-stopped
-    volumes:
-      - www:/www/:Z
-      - home:/home/:Z
-      - dehydrated:/etc/dehydrated/:Z
-      - mysql:/var/lib/mysql/:Z
-      - php:/etc/php/:Z
-      - etc_ajenti:/etc/ajenti/:Z
-      - ./backup:/backup
-    ports:
-      - "80:80"
-      - "443:443"
-      - "7777:22"
-      - "8888:8000"
-    networks:
-      - ajenti-v
-volumes:
-  www:
-  home:
-  dehydrated:
-  mysql:
-  php:
-  etc_ajenti:
-networks:
-  ajenti-v:
-Dockerfile and assets: github: https://github.com/linuxlifepage/ajenti-ajenti-v⁠
+I may remove the Settings plugin entirely for the sake of a "best practices" approach to Docker.
