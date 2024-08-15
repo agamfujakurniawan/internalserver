@@ -1,5 +1,5 @@
 # Use the latest Ubuntu image as a parent
-FROM ubuntu:Noble
+FROM ubuntu:latest
 MAINTAINER "Johan Pienaar" <johan@pienaarfamilie.nl>
 
 ENV DEBIAN_FRONTEND=noninteractive
