@@ -1,30 +1,40 @@
-FROM ubuntu:latest
+FROM php:7-apache
 
-# Install Dependancies
-RUN apt-get update
-RUN DEBIAN_FRONTEND='noninteractive' apt-get install -y build-essential python-pip python-dev python-lxml libffi-dev libssl-dev libjpeg-dev libpng-dev uuid-dev python-dbus python-augeas python-apt ntpdate git
-RUN rm /usr/lib/python2.7/dist-packages/setuptools.egg-info || true
-RUN easy_install -U pip
-RUN pip install -U pip wheel setuptools distribute
+ARG COCKPIT_VERSION="master"
 
-# Install Ajenti 2
-RUN pip install ajenti-panel ajenti.plugin.dashboard
+RUN apt-get update \
+    && apt-get install -y \
+	wget zip unzip \
+        libfreetype6-dev \
+        libjpeg62-turbo-dev \
+        libpng-dev \
+        sqlite3 libsqlite3-dev \
+        libssl-dev \
+        libzip-dev \
+    && pecl install mongodb \
+    && pecl install redis \
+    && docker-php-ext-configure gd --with-freetype=/usr/include/ --with-jpeg=/usr/include/ \
+    && docker-php-ext-install -j$(nproc) iconv gd pdo zip opcache pdo_sqlite \
+    && a2enmod rewrite expires
 
-# Update Font-Awesome
-RUN rm -r /usr/local/lib/python2.7/dist-packages/ajenti_plugin_core/resources/vendor/fontawesome
-RUN git clone https://github.com/FortAwesome/Font-Awesome.git
-RUN mv /Font-Awesome /usr/local/lib/python2.7/dist-packages/ajenti_plugin_core/resources/vendor/fontawesome
+RUN echo "extension=mongodb.so" > /usr/local/etc/php/conf.d/mongodb.ini
+RUN echo "extension=redis.so" > /usr/local/etc/php/conf.d/redis.ini
 
-# Install basic Ajenti 2 Plugins
-RUN cd /usr/local/lib/python2.7/dist-packages && rm -r ajenti_plugin_settings && git clone https://github.com/ggpwnkthx/ajenti_plugin_settings.git
+RUN wget https://github.com/agentejo/cockpit/archive/${COCKPIT_VERSION}.zip -O /tmp/cockpit.zip; unzip /tmp/cockpit.zip -d /tmp/; rm /tmp/cockpit.zip
+RUN mv /tmp/cockpit-${COCKPIT_VERSION}/.htaccess /var/www/html/.htaccess
+RUN mv /tmp/cockpit-${COCKPIT_VERSION}/* /var/www/html/
+RUN rm -R /tmp/cockpit-${COCKPIT_VERSION}/
+RUN echo "\n\nphp_value post_max_size 256M" >> /var/www/html/.htaccess
+RUN echo "\nphp_value  upload_max_filesize 256M" >> /var/www/html/.htaccess
 
-# Install COACH dependancies
-RUN cd /usr/local/lib/python2.7/dist-packages && git clone https://github.com/ggpwnkthx/ajenti_plugin_coach.git
-RUN pip install pyroute2
+COPY src /var/www/html/
 
-# Rebrand to COACH
-RUN sed -i "s/{{customization.plugins.core.title || 'Ajenti'}}/{{customization.plugins.core.title || 'COACH'}}"/g /usr/local/lib/python2.7/dist-packages/ajenti_plugin_core/content/pages/index.html
+RUN chown -R www-data:www-data /var/www/html
 
-# Add Docker EntryPoint Script
-COPY /entrypoint.sh /entrypoint.sh
-ENTRYPOINT ["/entrypoint.sh", "/usr/local/bin/ajenti-panel"]
+COPY ./entrypoint /usr/local/bin/
+RUN chmod +x /usr/local/bin/entrypoint
+
+VOLUME ["/var/www/html/storage"]
+
+ENTRYPOINT ["entrypoint"]
+CMD ["apache2-foreground"]
