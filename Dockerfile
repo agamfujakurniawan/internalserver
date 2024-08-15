@@ -3,8 +3,8 @@ FROM ubuntu:24.04
 
 # Set environment variables to avoid interactive prompts during installation
 ENV DEBIAN_FRONTEND=noninteractive
-ENV SSH_USERNAME=ubuntu
-ENV PASSWORD=changeme
+ENV SSH_USERNAME=hegira
+ENV PASSWORD=@12345Lupa
 
 # Install OpenSSH server and clean up
 RUN apt-get update \
