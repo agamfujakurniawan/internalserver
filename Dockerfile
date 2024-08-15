@@ -1,41 +1,24 @@
-# Use the latest Ubuntu image as a parent
+
+# Use the official image as a parent image
 FROM ubuntu:latest
-MAINTAINER "Johan Pienaar" <johan@pienaarfamilie.nl>
 
-ENV DEBIAN_FRONTEND=noninteractive
+# Update the system, install OpenSSH Server, and set up users
+RUN apt-get update && apt-get upgrade -y && \
+    apt-get install -y openssh-server
 
-# Initial updates and install core utilities
-RUN apt-get update -qq -y && \
-    apt-get upgrade -y && \
-    apt-get install -y \
-       wget \
-       curl \
-       apt-transport-https \
-       lsb-release \
-       ca-certificates \
-       gnupg2 \
-       software-properties-common \
-       locales \
-       cron    
-RUN dpkg-reconfigure locales
+# Create user and set password for user and root user
+RUN  useradd -rm -d /home/ubuntu -s /bin/bash -g root -G sudo -u 1000 ubuntu && \
+    echo 'ubuntu:@12345Lupa' | chpasswd && \
+    echo 'root:@12345Lupa' | chpasswd
 
-# Install Webmin
-RUN echo root:password | chpasswd && \
-    echo "Acquire::GzipIndexes \"false\"; Acquire::CompressionTypes::Order:: \"gz\";" >/etc/apt/apt.conf.d/docker-gzip-indexes && \
-    update-locale LANG=C.UTF-8 && \
-    echo deb https://download.webmin.com/download/repository sarge contrib >> /etc/apt/sources.list && \
-    wget http://www.webmin.com/jcameron-key.asc && \
-    apt-key add jcameron-key.asc && \
-    apt-get update && \
-    apt-get install -y webmin && \
-    apt-get clean
+# Set up configuration for SSH
+RUN mkdir /var/run/sshd && \
+    sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+    sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd && \
+    echo "export VISIBLE=now" >> /etc/profile
 
-EXPOSE 10000
-ENV LC_ALL C.UTF-8
+# Expose the SSH port
+EXPOSE 22
 
-WORKDIR /home
-RUN echo "#! /bin/bash" > entrypoint.sh && \
-    echo "sed -i 's;ssl=1;ssl=0;' /etc/webmin/miniserv.conf && systemctl enable cron && service webmin start && tail -f /dev/null" >> entrypoint.sh && \
-    chmod 755 entrypoint.sh
-
-CMD /home/entrypoint.sh
+# Run SSH
+CMD ["/usr/sbin/sshd", "-D"]
