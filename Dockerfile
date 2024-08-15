@@ -1,24 +1,35 @@
+# Use an official Ubuntu base image
+FROM ubuntu:24.04
 
-# Use the official image as a parent image
-FROM ubuntu:latest
+# Set environment variables to avoid interactive prompts during installation
+ENV DEBIAN_FRONTEND=noninteractive
+ENV SSH_USERNAME=ubuntu
+ENV PASSWORD=changeme
 
-# Update the system, install OpenSSH Server, and set up users
-RUN apt-get update && apt-get upgrade -y && \
-    apt-get install -y openssh-server
+# Install OpenSSH server and clean up
+RUN apt-get update \
+    && apt-get install -y openssh-server iputils-ping telnet iproute2 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Create user and set password for user and root user
-RUN  useradd -rm -d /home/ubuntu -s /bin/bash -g root -G sudo -u 1000 ubuntu && \
-    echo 'ubuntu:@12345Lupa' | chpasswd && \
-    echo 'root:@12345Lupa' | chpasswd
+# Create the privilege separation directory and fix permissions
+RUN mkdir -p /run/sshd \
+    && chmod 755 /run/sshd
 
-# Set up configuration for SSH
-RUN mkdir /var/run/sshd && \
-    sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
-    sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd && \
-    echo "export VISIBLE=now" >> /etc/profile
+# Check if the user exists before trying to create it
+RUN if ! id -u $SSH_USERNAME > /dev/null 2>&1; then useradd -ms /bin/bash $SSH_USERNAME; fi
 
-# Expose the SSH port
+# Set up SSH configuration
+RUN mkdir -p /home/$SSH_USERNAME/.ssh && chown $SSH_USERNAME:$SSH_USERNAME /home/$SSH_USERNAME/.ssh \
+    && echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config \
+    && echo "PermitRootLogin no" >> /etc/ssh/sshd_config
+
+# Copy the script to configure the user's password and authorized keys
+COPY configure-ssh-user.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/configure-ssh-user.sh
+
+# Expose SSH port
 EXPOSE 22
 
-# Run SSH
-CMD ["/usr/sbin/sshd", "-D"]
+# Start SSH server
+CMD ["/usr/local/bin/configure-ssh-user.sh"]
